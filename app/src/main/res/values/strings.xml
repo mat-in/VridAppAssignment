@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">VridAppAssignment</string>
+    <string name="title_activity_blogreader">blogreader</string>
+    <string name="title_activity_blog_detail">BlogDetailActivity</string>
+</resources>
