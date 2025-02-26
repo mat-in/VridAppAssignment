@@ -18,7 +18,6 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.example.vridappassignment.ui.theme.VridAppAssignmentTheme
 
 
-// Blog Detail Activity
 class BlogDetailActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

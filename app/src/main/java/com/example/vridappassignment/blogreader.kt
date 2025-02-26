@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -20,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
@@ -30,6 +32,7 @@ import kotlinx.coroutines.launch
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.GET
+import retrofit2.http.Query
 
 // Data Model
 data class BlogPost(val id: Int, val title: Title, val link: String) {
@@ -38,8 +41,11 @@ data class BlogPost(val id: Int, val title: Title, val link: String) {
 
 // Retrofit API Service
 interface BlogApiService {
-    @GET("wp-json/wp/v2/posts?per_page=10&page=1")
-    suspend fun getBlogs(): List<BlogPost>
+    @GET("wp-json/wp/v2/posts")
+    suspend fun getBlogs(
+        @Query("per_page") perPage: Int,
+        @Query("page") page: Int
+    ): List<BlogPost>
 }
 
 // Retrofit Instance
@@ -53,10 +59,10 @@ object RetrofitInstance {
 }
 
 // Fetch Blogs Function
-fun fetchBlogs(callback: (List<BlogPost>) -> Unit) {
+fun fetchBlogs(page: Int, callback: (List<BlogPost>) -> Unit) {
     CoroutineScope(Dispatchers.IO).launch {
         try {
-            val blogs = RetrofitInstance.api.getBlogs()
+            val blogs = RetrofitInstance.api.getBlogs(perPage = 10, page = page)
             callback(blogs)
         } catch (e: Exception) {
             callback(emptyList())
@@ -69,11 +75,13 @@ fun fetchBlogs(callback: (List<BlogPost>) -> Unit) {
 @Composable
 fun BlogListScreen() {
     var blogs by remember { mutableStateOf<List<BlogPost>>(emptyList()) }
+    var currentPage by remember { mutableStateOf(1) }
+    val listState = rememberLazyListState()
     val context = LocalContext.current
 
-    LaunchedEffect(Unit) {
-        fetchBlogs { fetchedBlogs ->
-            blogs = fetchedBlogs
+    LaunchedEffect(currentPage) {
+        fetchBlogs(currentPage) { fetchedBlogs ->
+            blogs = blogs + fetchedBlogs
         }
     }
 
@@ -81,7 +89,7 @@ fun BlogListScreen() {
         topBar = { TopAppBar(title = { Text("Blogs") }) }
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
                 items(blogs) { blog ->
                     BlogItem(blog) {
                         val intent = Intent(context, BlogDetailActivity::class.java)
@@ -89,6 +97,15 @@ fun BlogListScreen() {
                         context.startActivity(intent)
                     }
                 }
+            }
+
+            LaunchedEffect(listState) {
+                snapshotFlow { listState.layoutInfo.visibleItemsInfo }
+                    .collect { visibleItems ->
+                        if (visibleItems.isNotEmpty() && visibleItems.last().index == blogs.size - 1) {
+                            currentPage++
+                        }
+                    }
             }
         }
     }
